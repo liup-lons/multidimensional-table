@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import MultidimensionalTable from './components/MultidimensionalTable.vue'
+import EmployeeMultidimensionalTable from './components/EmployeeMultidimensionalTable.vue'
 
 </script>
 
 <template>
   <div>
-    <h1>Multidimensional Table</h1>
-    <MultidimensionalTable />
+    <EmployeeMultidimensionalTable />
   </div>
 </template>
 
