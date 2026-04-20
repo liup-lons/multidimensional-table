@@ -4,14 +4,6 @@ import { ElTable, ElTableColumn, ElPagination, ElLoading, ElMessage, ElDialog, E
 import 'element-plus/dist/index.css'
 import type { FormInstance } from 'element-plus'
 
-// 员工数据接口
-export interface Employee {
-  createdAt: string
-  技能: string
-  姓名: string
-  id: string
-  年龄: string
-  updatedAt: string
   入职日期: string
   性别: string
 }
@@ -47,9 +39,6 @@ const filterForm = ref({
 })
 
 // 编辑对话框
-const editDialogVisible = ref(false)
-const currentEmployee = ref<Employee>({
-  createdAt: '',
   技能: '',
   姓名: '',
   id: '',
@@ -73,44 +62,13 @@ const fetchEmployeeData = async () => {
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
-    }
+const fetchEmployeeData = async () => {
     
     const data = await response.json()
-    console.log('API响应数据:', data)
-    
-    // 确保employees.value始终是一个数组
-    const rawData = data.data || data
-    console.log('原始数据:', rawData)
-    if (Array.isArray(rawData)) {
-      employees.value = rawData
-      console.log('员工数据赋值:', employees.value)
-    } else {
-      employees.value = []
-      console.log('员工数据为空数组')
-    }
-    
-    total.value = data.total || employees.value.length
-    console.log('总条数:', total.value)
-    employeesData.value = [...employees.value]
-    console.log('处理后的数据:', employeesData.value)
-  } catch (err) {
-    console.error('Failed to fetch employee data:', err)
-    ElMessage.error(err instanceof Error ? err.message : 'Failed to fetch employee data')
-    
-    // 加载失败时使用示例数据
-    loadSampleData()
-  } finally {
-    loading.value = false
-  }
-}
-
-// 示例数据加载函数
-const loadSampleData = () => {
-  console.log('开始加载示例数据...')
-  employees.value = [
-    {
-      createdAt: "2025-12-17T02:18:00",
-      技能: "javascript,c++,javascript",
+  console.log('API URL:', `${baseApiUrl.value}/${tableId.value}?pageNum=${currentPage.value}&pageSize=${pageSize.value}`)
+  
+  try {
+    const response = await fetch(`${baseApiUrl.value}/${tableId.value}?pageNum=${currentPage.value}&pageSize=${pageSize.value}`)
       姓名: "吴十",
       id: "02553925e6e99ec80d75db34a824068a",
       年龄: "26",
@@ -119,17 +77,7 @@ const loadSampleData = () => {
       性别: "female"
     },
     {
-      createdAt: "2025-12-16T10:30:00",
-      技能: "python,java,sql",
-      姓名: "张三",
-      id: "1234567890abcdef1234567890abcdef",
-      年龄: "28",
-      updatedAt: "2025-12-16T10:30:00",
-      入职日期: "2022-03-15",
-      性别: "male"
-    },
-    {
-      createdAt: "2025-12-15T15:45:00",
+    
       技能: "vue,react,typescript",
       姓名: "李四",
       id: "abcdef1234567890abcdef1234567890",
@@ -140,6 +88,7 @@ const loadSampleData = () => {
     },
     {
       createdAt: "2025-12-14T09:20:00",
+    
       技能: "c#,asp.net,sql server",
       姓名: "王五",
       id: "def1234567890abcdef1234567890abc",
@@ -286,9 +235,25 @@ const saveEdit = () => {
       ElMessage.success('编辑成功')
     }
   }
-  editDialogVisible.value = false
-}
-
+  employeesData.value = employees.value.filter(employee => {
+    let match = true
+    
+    if (filterForm.value.姓名) {
+      match = match && employee.姓名.includes(filterForm.value.姓名)
+    }
+    
+    if (filterForm.value.性别) {
+      match = match && employee.性别 === filterForm.value.性别
+    }
+    
+    if (filterForm.value.技能) {
+      match = match && employee.技能.includes(filterForm.value.技能)
+    }
+    
+    return match
+  })
+  
+  total.value = employeesData.value.length
 // 分页变化
 const handlePageChange = (page: number, size: number) => {
   currentPage.value = page
@@ -299,9 +264,8 @@ const handlePageChange = (page: number, size: number) => {
 // 格式化日期
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr)
-  return date.toLocaleDateString('zh-CN')
-}
-
+  employeesData.value = [...employees.value]
+  total.value = employeesData.value.length
 // 格式化技能标签
 const formatSkills = (skills: string) => {
   return skills.split(',').map(skill => skill.trim())
@@ -375,25 +339,6 @@ onMounted(() => {
       </el-table-column>
       <el-table-column prop="createdAt" label="创建时间" min-width="150">
         <template #default="scope">
-          {{ formatDate(scope.row.createdAt) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" min-width="100" fixed="right">
-        <template #default="scope">
-          <el-button type="primary" size="small" @click="viewEmployee(scope.row)">
-            查看/编辑
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    
-    <!-- 分页 -->
-    <div class="pagination-container">
-      <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
         :total="total"
 @size-change="(size: number) => handlePageChange(1, size)"
         @current-change="(page: number) => handlePageChange(page, pageSize)"

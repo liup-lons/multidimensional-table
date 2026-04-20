@@ -1,5 +1,22 @@
 // 多维表的核心类型定义
 
+// 字段定义接口
+export interface FieldDefinition {
+  fieldName: string
+  fieldType: 'text' | 'number' | 'date' | 'select' | 'tags' | 'boolean'
+  fieldLabel: string
+  description?: string
+  options?: string[] // 用于select类型
+  defaultValue?: any
+  required?: boolean
+  validation?: {
+    min?: number
+    max?: number
+    regex?: string
+    message?: string
+  }
+}
+
 // 单元格接口
 export interface Cell {
   id: string
@@ -45,11 +62,15 @@ export interface Measure {
 
 // 多维表数据接口
 export interface TableData {
-  dimensions: Dimension[]
-  rows: Row[]
-  columns: Column[]
-  cells: Cell[]
-  config: TableConfig
+  id: string
+  name: string
+  fieldDefinitions: FieldDefinition[]
+  data: any[]
+  dimensions?: Dimension[]
+  rows?: Row[]
+  columns?: Column[]
+  cells?: Cell[]
+  config?: TableConfig
 }
 
 // 维度值组合接口
