@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ElTable, ElTableColumn, ElPagination, ElLoading, ElMessage, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElButton } from 'element-plus'
+import { ElTable, ElTableColumn, ElPagination, ElMessage, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElButton, ElTag } from 'element-plus'
 import 'element-plus/dist/index.css'
 import type { FormInstance } from 'element-plus'
 
-  入职日期: string
+// 员工类型定义
+interface Employee {
+  id: string
+  姓名: string
+  年龄: string
   性别: string
+  入职日期: string
+  技能: string
+  createdAt: string
+  updatedAt: string
 }
 
 // 组件属性
@@ -18,7 +26,6 @@ const props = defineProps<{
 // 默认配置
 const tableId = ref(props.tableId || 'd43ed0d3d8f48e4ebe467128eb7a7259')
 const baseApiUrl = ref(props.apiUrl || '/api/matrix-tables')
-const apiPathSuffix = ref(props.apiPathSuffix || '')
 
 // 加载状态
 const loading = ref(false)
@@ -39,13 +46,16 @@ const filterForm = ref({
 })
 
 // 编辑对话框
-  技能: '',
-  姓名: '',
+const editDialogVisible = ref(false)
+const currentEmployee = ref<Employee>({
   id: '',
+  姓名: '',
   年龄: '',
-  updatedAt: '',
+  性别: '',
   入职日期: '',
-  性别: ''
+  技能: '',
+  createdAt: '',
+  updatedAt: ''
 })
 // 编辑表单引用
 const editFormRef = ref<FormInstance | null>(null)
@@ -53,22 +63,34 @@ const editFormRef = ref<FormInstance | null>(null)
 // API调用函数
 const fetchEmployeeData = async () => {
   loading.value = true
-  console.log('开始获取员工数据...')
-  console.log('API URL:', `${baseApiUrl.value}/${tableId.value}?pageNum=${currentPage.value}&pageSize=${pageSize.value}`)
   
   try {
     const response = await fetch(`${baseApiUrl.value}/${tableId.value}?pageNum=${currentPage.value}&pageSize=${pageSize.value}`)
-    console.log('响应状态:', response.status)
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
-const fetchEmployeeData = async () => {
+    }
     
     const data = await response.json()
-  console.log('API URL:', `${baseApiUrl.value}/${tableId.value}?pageNum=${currentPage.value}&pageSize=${pageSize.value}`)
-  
-  try {
-    const response = await fetch(`${baseApiUrl.value}/${tableId.value}?pageNum=${currentPage.value}&pageSize=${pageSize.value}`)
+    // 处理API返回数据
+    employees.value = Array.isArray(data.data || data) ? data.data || data : []
+    total.value = data.total || employees.value.length
+    employeesData.value = [...employees.value]
+  } catch (err) {
+    console.error('获取数据失败，使用示例数据:', err)
+    // 加载示例数据
+    loadSampleData()
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载示例数据
+const loadSampleData = () => {
+  employees.value = [
+    {
+      createdAt: "2025-12-17T02:18:00",
+      技能: "javascript,c++,javascript",
       姓名: "吴十",
       id: "02553925e6e99ec80d75db34a824068a",
       年龄: "26",
@@ -77,7 +99,7 @@ const fetchEmployeeData = async () => {
       性别: "female"
     },
     {
-    
+      createdAt: "2025-12-15T15:45:00",
       技能: "vue,react,typescript",
       姓名: "李四",
       id: "abcdef1234567890abcdef1234567890",
@@ -88,7 +110,6 @@ const fetchEmployeeData = async () => {
     },
     {
       createdAt: "2025-12-14T09:20:00",
-    
       技能: "c#,asp.net,sql server",
       姓名: "王五",
       id: "def1234567890abcdef1234567890abc",
@@ -116,63 +137,10 @@ const fetchEmployeeData = async () => {
       updatedAt: "2025-12-12T11:30:00",
       入职日期: "2023-12-01",
       性别: "female"
-    },
-    {
-      createdAt: "2025-12-11T16:40:00",
-      技能: "java,spring,mysql",
-      姓名: "周八",
-      id: "1234567890abcdef1234567890abcdef1",
-      年龄: "29",
-      updatedAt: "2025-12-11T16:40:00",
-      入职日期: "2021-08-15",
-      性别: "male"
-    },
-    {
-      createdAt: "2025-12-10T10:50:00",
-      技能: "javascript,angular,typescript",
-      姓名: "吴九",
-      id: "1234567890abcdef1234567890abcdef2",
-      年龄: "26",
-      updatedAt: "2025-12-10T10:50:00",
-      入职日期: "2022-09-30",
-      性别: "female"
-    },
-    {
-      createdAt: "2025-12-09T13:20:00",
-      技能: "python,django,postgresql",
-      姓名: "郑十一",
-      id: "1234567890abcdef1234567890abcdef3",
-      年龄: "27",
-      updatedAt: "2025-12-09T13:20:00",
-      入职日期: "2022-12-20",
-      性别: "male"
-    },
-    {
-      createdAt: "2025-12-08T09:10:00",
-      技能: "vue,element-plus,axios",
-      姓名: "王十二",
-      id: "1234567890abcdef1234567890abcdef4",
-      年龄: "25",
-      updatedAt: "2025-12-08T09:10:00",
-      入职日期: "2023-03-05",
-      性别: "female"
-    },
-    {
-      createdAt: "2025-12-07T15:30:00",
-      技能: "c++,qt,opencv",
-      姓名: "赵十三",
-      id: "1234567890abcdef1234567890abcdef5",
-      年龄: "31",
-      updatedAt: "2025-12-07T15:30:00",
-      入职日期: "2020-07-10",
-      性别: "male"
     }
   ]
-  console.log('示例数据加载完成:', employees.value)
   total.value = employees.value.length
-  console.log('总条数:', total.value)
   employeesData.value = [...employees.value]
-  console.log('处理后的数据:', employeesData.value)
 }
 
 // 分页数据
@@ -235,40 +203,34 @@ const saveEdit = () => {
       ElMessage.success('编辑成功')
     }
   }
-  employeesData.value = employees.value.filter(employee => {
-    let match = true
-    
-    if (filterForm.value.姓名) {
-      match = match && employee.姓名.includes(filterForm.value.姓名)
-    }
-    
-    if (filterForm.value.性别) {
-      match = match && employee.性别 === filterForm.value.性别
-    }
-    
-    if (filterForm.value.技能) {
-      match = match && employee.技能.includes(filterForm.value.技能)
-    }
-    
-    return match
-  })
-  
-  total.value = employeesData.value.length
+  editDialogVisible.value = false
+}
+
 // 分页变化
 const handlePageChange = (page: number, size: number) => {
+  if (size) {
+    pageSize.value = size
+  }
   currentPage.value = page
-  pageSize.value = size
-  fetchEmployeeData()
 }
 
 // 格式化日期
 const formatDate = (dateStr: string) => {
+  if (!dateStr) return ''
   const date = new Date(dateStr)
-  employeesData.value = [...employees.value]
-  total.value = employeesData.value.length
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 // 格式化技能标签
 const formatSkills = (skills: string) => {
-  return skills.split(',').map(skill => skill.trim())
+  if (!skills) return []
+  return skills.split(',').map(skill => skill.trim()).filter(skill => skill)
 }
 
 // 生命周期钩子 - 组件挂载时获取数据
@@ -339,10 +301,26 @@ onMounted(() => {
       </el-table-column>
       <el-table-column prop="createdAt" label="创建时间" min-width="150">
         <template #default="scope">
+          {{ formatDate(scope.row.createdAt) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" fixed="right" min-width="100">
+        <template #default="scope">
+          <el-button size="small" @click="viewEmployee(scope.row)">详情</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    
+    <!-- 分页 -->
+    <div class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[5, 10, 20, 50]"
         :total="total"
-@size-change="(size: number) => handlePageChange(1, size)"
-        @current-change="(page: number) => handlePageChange(page, pageSize)"
-
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="(size) => handlePageChange(1, size)"
+        @current-change="(page) => handlePageChange(page, pageSize)"
       />
     </div>
     
@@ -414,6 +392,10 @@ onMounted(() => {
 .pagination-container {
   margin-top: 20px;
   text-align: right;
+  padding: 15px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .el-table {

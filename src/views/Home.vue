@@ -7,9 +7,14 @@
     <div class="hero-section">
       <h2>欢迎使用多维表格可视化平台</h2>
       <p>一个轻量级、高性能的开源表格解决方案</p>
-      <router-link to="/table/d43ed0d3d8f48e4ebe467128eb7a7259" class="btn-primary">
-        查看示例表格
-      </router-link>
+      <div class="hero-buttons">
+        <router-link to="/examples" class="btn-primary">
+          查看示例展示
+        </router-link>
+        <router-link to="/table/d43ed0d3d8f48e4ebe467128eb7a7259" class="btn-secondary">
+          查看示例表格
+        </router-link>
+      </div>
     </div>
     
     <div class="features-section">
@@ -84,6 +89,12 @@
   color: #606266;
 }
 
+.hero-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
 .btn-primary {
   display: inline-block;
   background-color: #1890ff;
@@ -97,6 +108,23 @@
 
 .btn-primary:hover {
   background-color: #40a9ff;
+}
+
+.btn-secondary {
+  display: inline-block;
+  background-color: white;
+  color: #1890ff;
+  border: 2px solid #1890ff;
+  padding: 0.8rem 2rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  background-color: #1890ff;
+  color: white;
 }
 
 .features-section {

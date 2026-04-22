@@ -8,6 +8,7 @@
       <h1>多维表格可视化平台</h1>
       <nav>
         <router-link to="/">首页</router-link>
+        <router-link to="/examples">示例展示</router-link>
         <router-link to="/table/d43ed0d3d8f48e4ebe467128eb7a7259">示例表格</router-link>
       </nav>
     </header>
