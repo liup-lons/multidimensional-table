@@ -65,6 +65,13 @@ const fetchEmployeeData = async () => {
   loading.value = true
   
   try {
+    // 开发环境下直接使用示例数据
+    if (import.meta.env.DEV) {
+      console.log('开发环境，使用示例数据')
+      loadSampleData()
+      return
+    }
+    
     const response = await fetch(`${baseApiUrl.value}/${tableId.value}?pageNum=${currentPage.value}&pageSize=${pageSize.value}`)
     
     if (!response.ok) {
