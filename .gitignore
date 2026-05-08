@@ -7,18 +7,72 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+build/
 *.local
+
+# Environment variables - 敏感配置文件
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Secrets and credentials
+*.key
+*.pem
+*.crt
+*.pfx
+*.jks
+secrets/
+credentials/
+.vault
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+data/
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+!.vscode/settings.json
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.bak
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Cache files
+.cache/
+.parcel-cache/
+.eslintcache
+npm-cache/
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+*.test.js.snap
+
+# Misc
+*.md.bak
+*.tmp
+*.temp
+*.swp
+*.swo
