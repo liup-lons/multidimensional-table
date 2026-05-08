@@ -65,9 +65,8 @@ const fetchEmployeeData = async () => {
   loading.value = true
   
   try {
-    // 开发环境下直接使用示例数据
+    // 开发环境下直接使用示例数据（条件编译，生产构建时会被移除）
     if (import.meta.env.DEV) {
-      console.log('开发环境，使用示例数据')
       loadSampleData()
       return
     }
