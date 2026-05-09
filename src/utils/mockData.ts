@@ -135,7 +135,7 @@ export const createTestProject = (): Project => {
   const generateTestData = () => {
     const data = []
     const taskTitles = [
-      '用户登录模块开发111',
+      '用户登录模块开发',
       '数据分析仪表盘设计',
       '订单管理系统优化',
       '移动端适配改造',
