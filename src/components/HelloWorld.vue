@@ -135,42 +135,6 @@ const sampleTableData = {
         </div>
       </div>
     </div>
-
-    <!-- 使用说明 -->
-    <div class="usage-guide">
-      <h2>快速开始</h2>
-      <div class="guide-steps">
-        <div class="step">
-          <div class="step-number">1</div>
-          <div class="step-content">
-            <h3>引入组件</h3>
-            <p>在你的Vue组件中引入MultidimensionalTable组件</p>
-            <div class="code-block">
-              <code>import MultidimensionalTable from './components/MultidimensionalTable.vue'</code>
-            </div>
-          </div>
-        </div>
-        
-        <div class="step">
-          <div class="step-number">2</div>
-          <div class="step-content">
-            <h3>配置参数</h3>
-            <p>设置tableId和API地址等参数</p>
-            <div class="code-block">
-              <code>&lt;MultidimensionalTable tableId="your-table-id" /&gt;</code>
-            </div>
-          </div>
-        </div>
-        
-        <div class="step">
-          <div class="step-number">3</div>
-          <div class="step-content">
-            <h3>开始使用</h3>
-            <p>点击单元格进行编辑，使用搜索和筛选功能</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

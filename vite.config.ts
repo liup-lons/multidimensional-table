@@ -5,14 +5,13 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   server: {
-    proxy: {
-      // 将 /api 请求代理到后端服务
-      '/api': {
-        target: 'http://localhost:8081',
-        changeOrigin: true,
-        // 可选：如果后端API没有/api前缀，需要重写路径
-        // rewrite: (path) => path.replace(/^/api/, '')
-      }
-    }
+    // 开发环境需要连接后端服务时，取消注释以下配置
+    // 将 /api 请求代理到后端服务
+    // proxy: {
+    //   '/api': {
+    //     target: 'http://localhost:8081',
+    //     changeOrigin: true,
+    //   }
+    // }
   }
 })
