@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import type { Project, Table, FieldDefinition, View, FilterCondition, SortCondition, AutomationRule, Comment } from '../types/table'
+import { createTestProject } from '../utils/mockData'
 
 // 生成唯一ID
 const generateId = () => {
@@ -67,9 +68,14 @@ export const useTableStore = defineStore('table', {
     // 初始化加载数据
     initStore() {
       this.loadFromStorage()
-      // 如果没有项目，创建一个默认项目
+      // 如果没有项目，创建测试项目
       if (this.projects.length === 0) {
-        this.createProject('我的第一个项目', '欢迎使用多维表')
+        const testProject = createTestProject()
+        this.projects.push(testProject)
+        this.currentProject = testProject
+        this.currentTable = testProject.tables[0] || null
+        this.currentView = this.currentTable?.views[0] || null
+        this.saveToStorage()
       }
     },
     
@@ -639,6 +645,16 @@ export const useTableStore = defineStore('table', {
     // 移除在线用户
     removeOnlineUser(userId: string) {
       this.onlineUsers = this.onlineUsers.filter(u => u.id !== userId)
+      this.saveToStorage()
+    },
+    
+    // 重置为测试数据
+    resetToTestData() {
+      const testProject = createTestProject()
+      this.projects = [testProject]
+      this.currentProject = testProject
+      this.currentTable = testProject.tables[0] || null
+      this.currentView = this.currentTable?.views[0] || null
       this.saveToStorage()
     }
   }

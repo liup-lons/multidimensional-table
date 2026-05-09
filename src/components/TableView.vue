@@ -60,6 +60,7 @@
                 type="checkbox"
                 :checked="selectedRecords.includes(record.id)"
                 @change="toggleSelect(record.id)"
+                @click.stop
                 class="select-row"
               />
             </td>
@@ -236,7 +237,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, markRaw } from 'vue'
+import { ref, computed, markRaw, h } from 'vue'
 import { useTableStore } from '../store/table'
 import type { FieldDefinition, FilterCondition, SortCondition } from '../types/table'
 
@@ -476,20 +477,25 @@ const formatCellValue = (value: any, type: string) => {
 }
 
 const getEditorComponent = (_type: string) => {
-  // 简单实现，返回一个输入组件
+  // 使用 render 函数避免运行时编译警告
   return markRaw({
-    template: `
-      <input 
-        :value="value" 
-        @input="$emit('update', $event.target.value)"
-        @blur="$emit('update', $event.target.value)"
-        @keydown.enter="$emit('update', $event.target.value)"
-        @keydown.esc="$emit('cancel')"
-        class="editor-input"
-        autofocus
-      />
-    `,
-    props: ['value', 'field']
+    props: ['value', 'field'],
+    emits: ['update', 'cancel'],
+    render() {
+      return h('input', {
+        value: this.value,
+        class: 'editor-input',
+        autofocus: true,
+        onInput: (e: Event) => this.$emit('update', (e.target as HTMLInputElement).value),
+        onKeydown: (e: KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            this.$emit('update', (e.target as HTMLInputElement).value)
+          } else if (e.key === 'Escape') {
+            this.$emit('cancel')
+          }
+        }
+      })
+    }
   })
 }
 </script>
@@ -614,8 +620,8 @@ const getEditorComponent = (_type: string) => {
 }
 
 .table-row.selected {
-  background-color: var(--primary-light);
-  outline: 1px solid var(--primary-color);
+  background-color: rgba(22, 93, 255, 0.08);
+  border-left: 3px solid var(--primary-color);
 }
 
 .table-cell {
