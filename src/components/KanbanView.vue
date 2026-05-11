@@ -88,22 +88,90 @@
       </div>
     </div>
 
-    <!-- 卡片详情弹窗 -->
-    <div v-if="selectedRecord" class="modal-overlay" @click.self="selectedRecord = null">
+    <!-- 卡片详情/编辑弹窗 -->
+    <div v-if="selectedRecord" class="modal-overlay" @click.self="cancelEdit">
       <div class="modal-content card-detail-modal">
-        <h3>记录详情</h3>
+        <div class="modal-header">
+          <h3>{{ isEditing ? '编辑记录' : '记录详情' }}</h3>
+          <button v-if="!isEditing" class="edit-btn" @click="startEdit">编辑</button>
+        </div>
         <div class="detail-fields">
           <div
             v-for="field in currentFields"
             :key="field.id"
             class="detail-field"
           >
-            <label>{{ field.fieldLabel }}</label>
-            <span>{{ formatValue(selectedRecord[field.fieldName], field.fieldType) }}</span>
+            <label>{{ field.fieldLabel }}<span v-if="field.required" class="required">*</span></label>
+            <template v-if="isEditing">
+              <input
+                v-if="field.fieldType === 'text'"
+                v-model="editedRecord[field.fieldName]"
+                class="form-input"
+                :placeholder="`请输入${field.fieldLabel}`"
+              />
+              <input
+                v-else-if="field.fieldType === 'number'"
+                v-model.number="editedRecord[field.fieldName]"
+                type="number"
+                class="form-input"
+                :placeholder="`请输入${field.fieldLabel}`"
+              />
+              <input
+                v-else-if="field.fieldType === 'date'"
+                v-model="editedRecord[field.fieldName]"
+                type="date"
+                class="form-input"
+              />
+              <select
+                v-else-if="field.fieldType === 'select'"
+                v-model="editedRecord[field.fieldName]"
+                class="form-input"
+              >
+                <option value="">请选择</option>
+                <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
+              </select>
+              <div v-else-if="field.fieldType === 'boolean'" class="boolean-select">
+                <label class="radio-item">
+                  <input type="radio" :value="true" v-model="editedRecord[field.fieldName]" />
+                  <span>是</span>
+                </label>
+                <label class="radio-item">
+                  <input type="radio" :value="false" v-model="editedRecord[field.fieldName]" />
+                  <span>否</span>
+                </label>
+              </div>
+              <input
+                v-else-if="field.fieldType === 'rating'"
+                v-model.number="editedRecord[field.fieldName]"
+                type="range"
+                min="0"
+                max="5"
+                class="rating-input"
+              />
+              <input
+                v-else-if="field.fieldType === 'tags'"
+                v-model="editedRecord[field.fieldName]"
+                class="form-input"
+                :placeholder="'多个标签用逗号分隔'"
+              />
+              <input
+                v-else
+                v-model="editedRecord[field.fieldName]"
+                class="form-input"
+                :placeholder="`请输入${field.fieldLabel}`"
+              />
+            </template>
+            <span v-else>{{ formatValue(selectedRecord[field.fieldName], field.fieldType) }}</span>
           </div>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn-cancel" @click="selectedRecord = null">关闭</button>
+          <template v-if="isEditing">
+            <button type="button" class="btn-cancel" @click="cancelEdit">取消</button>
+            <button type="button" class="btn-submit" @click="saveEdit">保存</button>
+          </template>
+          <template v-else>
+            <button type="button" class="btn-cancel" @click="selectedRecord = null">关闭</button>
+          </template>
         </div>
       </div>
     </div>
@@ -119,6 +187,8 @@ const store = useTableStore()
 const showSettings = ref(false)
 const selectedRecord = ref<Record<string, any> | null>(null)
 const draggingRecord = ref<Record<string, any> | null>(null)
+const isEditing = ref(false)
+const editedRecord = ref<Record<string, any>>({})
 
 const settings = ref({
   groupField: '',
@@ -222,6 +292,34 @@ const saveSettings = () => {
 
 const openCardDetail = (record: Record<string, any>) => {
   selectedRecord.value = record
+  isEditing.value = false
+}
+
+const startEdit = () => {
+  if (selectedRecord.value) {
+    editedRecord.value = { ...selectedRecord.value }
+    isEditing.value = true
+  }
+}
+
+const cancelEdit = () => {
+  isEditing.value = false
+  selectedRecord.value = null
+  editedRecord.value = {}
+}
+
+const saveEdit = () => {
+  if (!editedRecord.value.id || !store.currentProject || !store.currentTable) return
+  
+  store.updateRecord(
+    store.currentProject.id,
+    store.currentTable.id,
+    editedRecord.value.id,
+    { ...editedRecord.value }
+  )
+  
+  selectedRecord.value = editedRecord.value
+  isEditing.value = false
 }
 
 const addCard = (columnValue: string) => {
@@ -599,6 +697,36 @@ watch(() => store.currentTable, () => {
   width: 520px;
 }
 
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.edit-btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--primary-color);
+  background-color: var(--primary-light);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.edit-btn:hover {
+  background-color: rgba(22, 93, 255, 0.2);
+}
+
 .detail-fields {
   max-height: 400px;
   overflow-y: auto;
@@ -610,17 +738,58 @@ watch(() => store.currentTable, () => {
   align-items: center;
   padding: var(--spacing-sm) 0;
   border-bottom: 1px solid var(--border-color);
+  gap: var(--spacing-md);
 }
 
 .detail-field label {
   font-weight: var(--font-weight-medium);
   color: var(--text-placeholder);
   font-size: var(--font-size-sm);
+  flex-shrink: 0;
+  min-width: 100px;
+}
+
+.detail-field label .required {
+  color: var(--danger-color);
+  margin-left: 4px;
 }
 
 .detail-field span {
   color: var(--text-primary);
   font-size: var(--font-size-sm);
+  flex: 1;
+  text-align: right;
+}
+
+.detail-field .form-input {
+  flex: 1;
+  max-width: 280px;
+}
+
+.boolean-select {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.radio-item input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-color);
+}
+
+.rating-input {
+  flex: 1;
+  max-width: 280px;
+  cursor: pointer;
 }
 
 /* 拖拽状态 */

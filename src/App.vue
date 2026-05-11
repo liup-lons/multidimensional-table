@@ -23,6 +23,9 @@
           <button v-if="store.currentProject" class="header-btn" @click="showBackupModal = true">
             备份数据
           </button>
+          <button class="header-btn" @click="resetTestData">
+            重置测试数据
+          </button>
         </div>
       </header>
 
@@ -279,6 +282,13 @@ const importBackup = () => {
     } else {
       alert('导入失败，请检查备份文件格式是否正确。')
     }
+  }
+}
+
+const resetTestData = () => {
+  if (confirm('确定重置为测试数据吗？这将覆盖所有现有数据。')) {
+    store.resetToTestData()
+    alert('测试数据已重置！')
   }
 }
 </script>
