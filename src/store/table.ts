@@ -204,6 +204,51 @@ export const useTableStore = defineStore('table', {
           fieldType: 'text',
           fieldLabel: '标题',
           required: true
+        },
+        {
+          id: generateId(),
+          fieldName: 'status',
+          fieldType: 'select',
+          fieldLabel: '状态',
+          options: ['未开始', '进行中', '已完成', '已暂停']
+        },
+        {
+          id: generateId(),
+          fieldName: 'priority',
+          fieldType: 'select',
+          fieldLabel: '优先级',
+          options: ['高', '中', '低']
+        },
+        {
+          id: generateId(),
+          fieldName: 'assignee',
+          fieldType: 'text',
+          fieldLabel: '负责人'
+        },
+        {
+          id: generateId(),
+          fieldName: 'progress',
+          fieldType: 'number',
+          fieldLabel: '进度(%)',
+          validation: { min: 0, max: 100 }
+        },
+        {
+          id: generateId(),
+          fieldName: 'startDate',
+          fieldType: 'date',
+          fieldLabel: '开始日期'
+        },
+        {
+          id: generateId(),
+          fieldName: 'endDate',
+          fieldType: 'date',
+          fieldLabel: '结束日期'
+        },
+        {
+          id: generateId(),
+          fieldName: 'completed',
+          fieldType: 'boolean',
+          fieldLabel: '是否完成'
         }
       ]
       
@@ -213,7 +258,10 @@ export const useTableStore = defineStore('table', {
           name: '表格视图',
           type: 'table',
           tableId: generateId(),
-          isDefault: true
+          isDefault: true,
+          filterConditions: [],
+          sortConditions: [],
+          visibleFieldIds: defaultFields.slice(0, 6).map(f => f.id)
         }
       ]
       
@@ -420,7 +468,10 @@ export const useTableStore = defineStore('table', {
         const newView: View = {
           ...view,
           id: generateId(),
-          tableId
+          tableId,
+          filterConditions: view.filterConditions || [],
+          sortConditions: view.sortConditions || [],
+          visibleFieldIds: view.visibleFieldIds || table.fieldDefinitions.slice(0, 6).map(f => f.id)
         }
         table.views.push(newView)
         table.updatedAt = new Date().toISOString()
@@ -661,7 +712,7 @@ export const useTableStore = defineStore('table', {
 })
 
 // 应用筛选条件
-function applyFilter(value: any, condition: FilterCondition): boolean {
+function applyFilter(value: unknown, condition: FilterCondition): boolean {
   switch (condition.operator) {
     case 'equals':
       return value === condition.value
@@ -687,7 +738,7 @@ function applyFilter(value: any, condition: FilterCondition): boolean {
 }
 
 // 解析导入值
-function parseValue(value: string, fieldType: string): any {
+function parseValue(value: string, fieldType: string): string | number | boolean | string[] {
   switch (fieldType) {
     case 'number':
       return parseFloat(value) || 0

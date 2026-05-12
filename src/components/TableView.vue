@@ -68,7 +68,7 @@
               v-for="field in currentFields"
               :key="field.id"
               class="table-cell"
-              :class="{ editable: !field.required }"
+              :class="{ editable: true }"
               @click="startEdit(record.id, field.fieldName)"
             >
               <template v-if="editingCell?.rowId === record.id && editingCell?.fieldName === field.fieldName">
@@ -264,7 +264,14 @@ const filterConditions = ref<FilterCondition[]>([])
 const sortConditions = ref<SortCondition[]>([])
 
 const currentFields = computed(() => {
-  return store.currentTable?.fieldDefinitions || []
+  const allFields = store.currentTable?.fieldDefinitions || []
+  const visibleFieldIds = store.currentView?.visibleFieldIds
+  
+  if (visibleFieldIds && visibleFieldIds.length > 0) {
+    return allFields.filter(field => visibleFieldIds.includes(field.id))
+  }
+  
+  return allFields
 })
 
 const displayData = computed(() => {
@@ -312,6 +319,33 @@ const addRecord = () => {
   currentFields.value.forEach(field => {
     if (field.defaultValue !== undefined) {
       defaultValues[field.fieldName] = field.defaultValue
+    } else {
+      // 为没有默认值的字段设置初始值
+      switch (field.fieldType) {
+        case 'boolean':
+          defaultValues[field.fieldName] = false
+          break
+        case 'number':
+          defaultValues[field.fieldName] = 0
+          break
+        case 'date':
+          defaultValues[field.fieldName] = ''
+          break
+        case 'select':
+          defaultValues[field.fieldName] = field.options?.[0] || ''
+          break
+        case 'tags':
+          defaultValues[field.fieldName] = []
+          break
+        case 'rating':
+          defaultValues[field.fieldName] = 0
+          break
+        case 'url':
+          defaultValues[field.fieldName] = ''
+          break
+        default:
+          defaultValues[field.fieldName] = ''
+      }
     }
   })
   
@@ -483,15 +517,15 @@ const getEditorComponent = (_type: string) => {
     emits: ['update', 'cancel'],
     render() {
       return h('input', {
-        value: this.value,
+        value: (this as any).value,
         class: 'editor-input',
         autofocus: true,
-        onInput: (e: Event) => this.$emit('update', (e.target as HTMLInputElement).value),
+        onInput: (e: Event) => (this as any).$emit('update', (e.target as HTMLInputElement).value),
         onKeydown: (e: KeyboardEvent) => {
           if (e.key === 'Enter') {
-            this.$emit('update', (e.target as HTMLInputElement).value)
+            (this as any).$emit('update', (e.target as HTMLInputElement).value)
           } else if (e.key === 'Escape') {
-            this.$emit('cancel')
+            (this as any).$emit('cancel')
           }
         }
       })

@@ -56,7 +56,7 @@
           class="view-tab"
         >
           {{ view.name }}
-          <button class="tab-close" @click.stop="deleteView(view.id)">×</button>
+          <span class="tab-close" @click.stop="deleteView(view.id)">×</span>
         </button>
         <button class="add-view-btn" @click="showCreateViewModal = true">+ 添加视图</button>
       </div>
