@@ -21,13 +21,26 @@
     <div class="gantt-container">
       <!-- 左侧任务列表 -->
       <div class="gantt-tasks">
-        <div class="task-list-header">任务</div>
+        <div class="task-list-header">
+          <span>任务</span>
+          <span class="stat-count">{{ displayData.length }}</span>
+        </div>
         <div
           v-for="record in displayData"
           :key="record.id"
           class="task-item"
+          :class="{ 'task-selected': selectedRecord?.id === record.id }"
+          @click="selectedRecord = record"
         >
-          <span class="task-name">{{ record[titleField] || '无标题' }}</span>
+          <div class="task-info">
+            <span class="task-name">{{ record[titleField] || '无标题' }}</span>
+            <div v-if="record.progress !== undefined" class="task-progress-mini">
+              <div class="progress-mini-bar">
+                <div class="progress-mini-fill" :style="{ width: Math.min(record.progress, 100) + '%' }"></div>
+              </div>
+              <span class="progress-mini-text">{{ Math.min(record.progress, 100) }}%</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -39,6 +52,7 @@
             v-for="period in timelinePeriods"
             :key="period.key"
             class="timeline-period"
+            :class="{ 'current-period': isCurrentPeriod(period) }"
             :style="{ width: period.width + 'px' }"
           >
             {{ period.label }}
@@ -51,17 +65,27 @@
             v-for="record in displayData"
             :key="record.id"
             class="gantt-row"
+            :class="{ 'row-selected': selectedRecord?.id === record.id }"
           >
             <div class="gantt-bars">
               <div
                 class="gantt-bar"
+                :class="{
+                  'bar-completed': record.progress === 100,
+                  'bar-in-progress': record.progress > 0 && record.progress < 100,
+                  'bar-pending': !record.progress
+                }"
                 :style="{
                   left: getBarPosition(record) + 'px',
                   width: getBarWidth(record) + 'px'
                 }"
                 @click="openTaskDetail(record)"
               >
+                <div v-if="record.progress !== undefined && record.progress > 0" class="bar-progress-bg">
+                  <div class="bar-progress-fill" :style="{ width: Math.min(record.progress, 100) + '%' }"></div>
+                </div>
                 <span class="bar-label">{{ record[titleField] || '任务' }}</span>
+                <span v-if="record.progress !== undefined" class="bar-progress-text">{{ Math.min(record.progress, 100) }}%</span>
               </div>
             </div>
           </div>
@@ -72,22 +96,70 @@
     <!-- 任务详情弹窗 -->
     <div v-if="selectedRecord" class="modal-overlay" @click.self="selectedRecord = null">
       <div class="modal-content">
-        <h3>任务详情</h3>
-        <div class="detail-info">
-          <div class="info-row">
-            <label>任务名称</label>
-            <span>{{ selectedRecord[titleField] || '无标题' }}</span>
+        <div class="modal-header">
+          <h3>任务详情</h3>
+          <button class="close-btn" @click="selectedRecord = null">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-section">
+            <h4>基本信息</h4>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <label>任务名称</label>
+                <span>{{ selectedRecord[titleField] || '无标题' }}</span>
+              </div>
+              <div v-if="selectedRecord.status" class="detail-item">
+                <label>状态</label>
+                <span class="badge status-badge">{{ selectedRecord.status }}</span>
+              </div>
+              <div v-if="selectedRecord.priority" class="detail-item">
+                <label>优先级</label>
+                <span class="badge priority-badge">{{ selectedRecord.priority }}</span>
+              </div>
+              <div v-if="selectedRecord.assignee" class="detail-item">
+                <label>负责人</label>
+                <span>{{ selectedRecord.assignee }}</span>
+              </div>
+            </div>
           </div>
-          <div v-if="startDateField" class="info-row">
-            <label>开始日期</label>
-            <span>{{ formatDate(selectedRecord[startDateField.fieldName]) }}</span>
+
+          <div class="detail-section">
+            <h4>时间安排</h4>
+            <div class="detail-grid">
+              <div v-if="startDateField" class="detail-item">
+                <label>开始日期</label>
+                <span>{{ formatDate(selectedRecord[startDateField.fieldName]) }}</span>
+              </div>
+              <div v-if="endDateField" class="detail-item">
+                <label>结束日期</label>
+                <span>{{ formatDate(selectedRecord[endDateField.fieldName]) }}</span>
+              </div>
+              <div v-if="selectedRecord.progress !== undefined" class="detail-item full-width">
+                <label>进度</label>
+                <div class="progress-info">
+                  <div class="progress-bar">
+                    <div class="progress-fill" :style="{ width: Math.min(selectedRecord.progress, 100) + '%' }"></div>
+                  </div>
+                  <span class="progress-text">{{ Math.min(selectedRecord.progress, 100) }}%</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div v-if="endDateField" class="info-row">
-            <label>结束日期</label>
-            <span>{{ formatDate(selectedRecord[endDateField.fieldName]) }}</span>
+
+          <div v-if="selectedRecord.tags && selectedRecord.tags.length" class="detail-section">
+            <h4>标签</h4>
+            <div class="tags-list">
+              <span v-for="tag in selectedRecord.tags" :key="tag" class="tag-item">{{ tag }}</span>
+            </div>
+          </div>
+
+          <div v-if="selectedRecord.description" class="detail-section">
+            <h4>描述</h4>
+            <p class="description-text">{{ selectedRecord.description }}</p>
           </div>
         </div>
-        <div class="form-actions">
+        <div class="modal-footer">
+          <button type="button" class="btn-primary" @click="editTask(selectedRecord)">编辑</button>
           <button type="button" class="btn-cancel" @click="selectedRecord = null">关闭</button>
         </div>
       </div>
@@ -126,13 +198,58 @@ const displayData = computed(() => {
   return store.getFilteredTableData || []
 })
 
+const timelineStart = ref('')
+const timelineEnd = ref('')
+
 const timelinePeriods = computed(() => {
   const periods = []
+  
+  // 获取数据中的日期范围
+  let dataStartDate: Date | null = null
+  let dataEndDate: Date | null = null
+  
+  if (startDateField.value) {
+    for (const record of displayData.value) {
+      const dateVal = record[startDateField.value.fieldName]
+      if (dateVal) {
+        const d = new Date(dateVal)
+        if (!dataStartDate || d < dataStartDate) dataStartDate = d
+        if (!dataEndDate || d > dataEndDate) dataEndDate = d
+      }
+      
+      if (endDateField.value) {
+        const endDateVal = record[endDateField.value.fieldName]
+        if (endDateVal) {
+          const d = new Date(endDateVal)
+          if (!dataStartDate || d < dataStartDate) dataStartDate = d
+          if (!dataEndDate || d > dataEndDate) dataEndDate = d
+        }
+      }
+    }
+  }
+  
+  // 如果没有数据，使用默认范围
   const today = new Date()
-  const startDate = new Date(today)
-  startDate.setDate(startDate.getDate() - 30) // 显示过去30天
-  const endDate = new Date(today)
-  endDate.setDate(endDate.getDate() + 90) // 显示未来90天
+  let startDate: Date
+  let endDate: Date
+  
+  if (dataStartDate && dataEndDate) {
+    // 有数据时，前后各扩展一个月
+    startDate = new Date(dataStartDate)
+    startDate.setMonth(startDate.getMonth() - 1)
+    endDate = new Date(dataEndDate)
+    endDate.setMonth(endDate.getMonth() + 1)
+  } else {
+    // 无数据时，显示过去30天到未来90天
+    startDate = new Date(today)
+    startDate.setDate(startDate.getDate() - 30)
+    endDate = new Date(today)
+    endDate.setDate(endDate.getDate() + 90)
+  }
+  
+  // 更新调试信息
+  timelineStart.value = startDate.toLocaleDateString('zh-CN')
+  timelineEnd.value = endDate.toLocaleDateString('zh-CN')
 
   const periodWidth = 100 // 每个时间周期的宽度
 
@@ -241,6 +358,18 @@ const openTaskDetail = (record: Record<string, any>) => {
   selectedRecord.value = record
 }
 
+const isCurrentPeriod = (period: any) => {
+  const today = new Date()
+  const periodDate = new Date(period.date)
+  return today.getFullYear() === periodDate.getFullYear() &&
+         today.getMonth() === periodDate.getMonth()
+}
+
+const editTask = (record: Record<string, any>) => {
+  selectedRecord.value = null
+  store.setCurrentView('table')
+}
+
 const formatDate = (dateStr: string | undefined) => {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleDateString('zh-CN', {
@@ -341,24 +470,77 @@ const formatDate = (dateStr: string | undefined) => {
   color: var(--text-primary);
   background-color: var(--bg-gray);
   border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-count {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .task-item {
   padding: var(--spacing-sm);
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   transition: background-color var(--transition-fast);
+  cursor: pointer;
 }
 
 .task-item:hover {
   background-color: rgba(22, 93, 255, 0.05);
 }
 
+.task-item.task-selected {
+  background-color: rgba(22, 93, 255, 0.1);
+  border-left: 3px solid var(--primary-color);
+}
+
+.task-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .task-name {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-progress-mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-mini-bar {
+  flex: 1;
+  height: 4px;
+  background-color: var(--bg-gray);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-mini-fill {
+  height: 100%;
+  background-color: var(--primary-color);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.progress-mini-text {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  min-width: 28px;
 }
 
 .gantt-timeline {
@@ -386,6 +568,13 @@ const formatDate = (dateStr: string | undefined) => {
   text-align: center;
   min-width: 80px;
   font-weight: var(--font-weight-medium);
+  transition: all var(--transition-fast);
+}
+
+.timeline-period.current-period {
+  background-color: rgba(22, 93, 255, 0.1);
+  color: var(--primary-color);
+  font-weight: 600;
 }
 
 .timeline-content {
@@ -394,14 +583,27 @@ const formatDate = (dateStr: string | undefined) => {
 }
 
 .gantt-row {
-  height: 48px;
+  height: 52px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   position: relative;
   background-color: var(--bg-white);
+  transition: background-color var(--transition-fast);
+}
+
+.gantt-row:hover {
+  background-color: rgba(22, 93, 255, 0.02);
+}
+
+.gantt-row.row-selected {
+  background-color: rgba(22, 93, 255, 0.08);
 }
 
 .gantt-row:nth-child(even) {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(0, 0, 0, 0.015);
+}
+
+.gantt-row:nth-child(even).row-selected {
+  background-color: rgba(22, 93, 255, 0.08);
 }
 
 .gantt-bars {
@@ -413,21 +615,62 @@ const formatDate = (dateStr: string | undefined) => {
 .gantt-bar {
   position: absolute;
   top: var(--spacing-xs);
-  height: 32px;
+  height: 36px;
   background-color: var(--primary-color);
   border-radius: var(--radius-sm);
   padding: 0 var(--spacing-sm);
   display: flex;
   align-items: center;
+  gap: 8px;
   cursor: pointer;
   transition: all var(--transition-fast);
-  min-width: 40px;
+  min-width: 60px;
+  overflow: hidden;
+}
+
+.gantt-bar.bar-pending {
+  background-color: #94a3b8;
+}
+
+.gantt-bar.bar-in-progress {
+  background-color: var(--primary-color);
+}
+
+.gantt-bar.bar-completed {
+  background-color: #22c55e;
 }
 
 .gantt-bar:hover {
-  background-color: var(--primary-dark);
   transform: scaleY(1.05);
   box-shadow: var(--shadow-md);
+  z-index: 10;
+}
+
+.gantt-bar.bar-pending:hover {
+  background-color: #64748b;
+}
+
+.gantt-bar.bar-in-progress:hover {
+  background-color: #1d4ed8;
+}
+
+.gantt-bar.bar-completed:hover {
+  background-color: #16a34a;
+}
+
+.bar-progress-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+.bar-progress-fill {
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.3);
+  transition: width 0.3s ease;
 }
 
 .bar-label {
@@ -436,6 +679,18 @@ const formatDate = (dateStr: string | undefined) => {
   color: white;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.bar-progress-text {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  background-color: rgba(0, 0, 0, 0.15);
+  padding: 2px 6px;
+  border-radius: 10px;
+  z-index: 1;
   white-space: nowrap;
 }
 
@@ -482,9 +737,12 @@ const formatDate = (dateStr: string | undefined) => {
   background-color: var(--bg-white);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: var(--spacing-lg);
-  width: 420px;
+  width: 520px;
   max-width: 95vw;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: slideUp var(--transition-normal);
 }
 
@@ -499,43 +757,184 @@ const formatDate = (dateStr: string | undefined) => {
   }
 }
 
-.modal-content h3 {
-  margin: 0 0 var(--spacing-md) 0;
-  font-size: var(--font-size-xl);
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
 
-.detail-info {
-  margin-bottom: var(--spacing-md);
-}
-
-.info-row {
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background-color: var(--bg-gray);
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text-secondary);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: var(--spacing-sm) 0;
-  border-bottom: 1px solid var(--border-color);
+  justify-content: center;
+  transition: all var(--transition-fast);
 }
 
-.info-row label {
-  font-weight: var(--font-weight-medium);
-  color: var(--text-placeholder);
+.close-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: var(--spacing-lg);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.detail-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.detail-section h4 {
+  margin: 0 0 var(--spacing-sm) 0;
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.info-row span {
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item.full-width {
+  grid-column: span 2;
+}
+
+.detail-item label {
+  font-size: 11px;
+  color: var(--text-placeholder);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.detail-item > span:not(.badge) {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
 }
 
-.form-actions {
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.status-badge {
+  background-color: rgba(22, 93, 255, 0.1);
+  color: var(--primary-color);
+}
+
+.priority-badge {
+  background-color: rgba(251, 189, 35, 0.1);
+  color: #d97706;
+}
+
+.progress-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background-color: var(--bg-gray);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--primary-color);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--primary-color);
+  min-width: 40px;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-item {
+  padding: 3px 12px;
+  background-color: var(--bg-gray);
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.description-text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: var(--spacing-sm);
-  margin-top: var(--spacing-lg);
-  padding-top: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
   border-top: 1px solid var(--border-color);
+}
+
+.btn-primary {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: white;
+  background-color: var(--primary-color);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-primary:hover {
+  background-color: #1d4ed8;
 }
 
 .btn-cancel {

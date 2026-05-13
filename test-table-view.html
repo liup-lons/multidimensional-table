@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>表格视图功能验证</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #333;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .test-section h2 {
+      margin-top: 0;
+      color: #555;
+    }
+    .test-item {
+      margin: 10px 0;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+    .test-item.pass {
+      background: #d4edda;
+      border-left: 4px solid #28a745;
+    }
+    .test-item.fail {
+      background: #f8d7da;
+      border-left: 4px solid #dc3545;
+    }
+    .test-item .status {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    .test-item .status.pass {
+      color: #28a745;
+    }
+    .test-item .status.fail {
+      color: #dc3545;
+    }
+    .test-item .description {
+      color: #666;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .results {
+      margin-top: 20px;
+    }
+    .summary {
+      padding: 15px;
+      background: #e9ecef;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>表格视图功能验证</h1>
+  
+  <div class="test-section">
+    <h2>验证内容</h2>
+    <div class="test-item">
+      <span class="status">1.</span>
+      <span class="description">添加记录功能 - 为所有字段类型设置正确的默认值</span>
+    </div>
+    <div class="test-item">
+      <span class="status">2.</span>
+      <span class="description">修改记录功能 - 点击单元格进入编辑模式</span>
+    </div>
+    <div class="test-item">
+      <span class="status">3.</span>
+      <span class="description">编辑器组件 - 根据字段类型显示不同的输入控件</span>
+    </div>
+    <div class="test-item">
+      <span class="status">4.</span>
+      <span class="description">数据持久化 - 修改后保存到本地存储</span>
+    </div>
+    <div class="test-item">
+      <span class="status">5.</span>
+      <span class="description">键盘快捷键 - Enter 保存，Esc 取消</span>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>验证步骤</h2>
+    <ol>
+      <li>打开浏览器访问 http://localhost:5177/</li>
+      <li>确保已有一个表格（如果没有，点击"新建表格"）</li>
+      <li>点击"+ 记录"按钮添加新记录</li>
+      <li>检查新记录是否包含所有字段且有正确的默认值</li>
+      <li>点击任意单元格进入编辑模式</li>
+      <li>修改内容并按 Enter 保存</li>
+      <li>刷新页面，检查数据是否持久化</li>
+      <li>尝试编辑不同类型的字段（文本、数字、日期、选择等）</li>
+    </ol>
+  </div>
+
+  <div class="test-section">
+    <h2>已知问题</h2>
+    <div class="test-item fail">
+      <span class="status fail">问题</span>
+      <span class="description">编辑器组件目前只返回简单的 input，没有根据字段类型显示不同的输入控件（如日期选择器、下拉选择等）</span>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>建议改进</h2>
+    <div class="test-item">
+      <span class="status">改进</span>
+      <span class="description">为不同字段类型实现对应的编辑器组件：
+        <ul>
+          <li>date - 日期选择器</li>
+          <li>select - 下拉选择框</li>
+          <li>boolean - 复选框</li>
+          <li>number - 数字输入框</li>
+          <li>rating - 评分滑块</li>
+          <li>tags - 标签输入</li>
+        </ul>
+      </span>
+    </div>
+  </div>
+
+  <button onclick="window.open('http://localhost:5177/', '_blank')">打开应用进行验证</button>
+</body>
+</html>

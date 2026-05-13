@@ -25,14 +25,6 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th class="select-column">
-              <input
-                type="checkbox"
-                :checked="allSelected"
-                @change="toggleSelectAll"
-                class="select-all"
-              />
-            </th>
             <th
               v-for="field in currentFields"
               :key="field.id"
@@ -53,51 +45,22 @@
             v-for="record in displayData"
             :key="record.id"
             class="table-row"
-            :class="{ selected: selectedRecords.includes(record.id) }"
           >
-            <td class="select-column">
-              <input
-                type="checkbox"
-                :checked="selectedRecords.includes(record.id)"
-                @change="toggleSelect(record.id)"
-                @click.stop
-                class="select-row"
-              />
-            </td>
             <td
               v-for="field in currentFields"
               :key="field.id"
               class="table-cell"
-              :class="{ editable: true }"
-              @click="startEdit(record.id, field.fieldName)"
             >
-              <template v-if="editingCell?.rowId === record.id && editingCell?.fieldName === field.fieldName">
-                <component
-                  :is="getEditorComponent(field.fieldType)"
-                  :value="record[field.fieldName]"
-                  :field="field"
-                  @update="updateCell(record.id, field.fieldName, $event)"
-                  @cancel="cancelEdit"
-                  class="cell-editor"
-                />
-              </template>
-              <template v-else>
-                <span class="cell-value">{{ formatCellValue(record[field.fieldName], field.fieldType) }}</span>
-              </template>
+              <span class="cell-value">{{ formatCellValue(record[field.fieldName], field.fieldType) }}</span>
             </td>
             <td class="actions-column">
+              <button class="action-btn" @click="editRecord(record.id)">编辑</button>
               <button class="action-btn" @click="copyRecord(record.id)">复制</button>
               <button class="action-btn" @click="deleteRecord(record.id)">删除</button>
             </td>
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- 批量操作栏 -->
-    <div v-if="selectedRecords.length > 0" class="batch-bar">
-      <span>已选择 {{ selectedRecords.length }} 条记录</span>
-      <button class="batch-btn" @click="batchDelete">批量删除</button>
     </div>
 
     <!-- 添加字段弹窗 -->
@@ -152,6 +115,57 @@
           </div>
           <div class="form-actions">
             <button type="button" class="btn-cancel" @click="closeFieldModal">取消</button>
+            <button type="submit" class="btn-submit">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 编辑记录弹窗 -->
+    <div v-if="showEditModal" class="modal-overlay">
+      <div class="modal-content">
+        <h3>编辑记录</h3>
+        <form @submit.prevent="saveEditRecord">
+          <div v-for="field in currentFields" :key="field.id" class="form-group">
+            <label>{{ field.fieldLabel }}{{ field.required ? ' *' : '' }}</label>
+            <input
+              v-if="field.fieldType === 'text' || field.fieldType === 'number' || field.fieldType === 'date' || field.fieldType === 'url'"
+              :type="field.fieldType === 'number' ? 'number' : field.fieldType === 'date' ? 'date' : 'text'"
+              v-model="editForm[field.fieldName]"
+              :required="field.required"
+              class="form-input"
+            />
+            <select
+              v-else-if="field.fieldType === 'select'"
+              v-model="editForm[field.fieldName]"
+              :required="field.required"
+              class="form-input"
+            >
+              <option v-for="option in field.options" :key="option" :value="option">{{ option }}</option>
+            </select>
+            <div v-else-if="field.fieldType === 'boolean'" class="form-group">
+              <label>
+                <input type="checkbox" v-model="editForm[field.fieldName]" />
+              </label>
+            </div>
+            <input
+              v-else-if="field.fieldType === 'tags'"
+              type="text"
+              v-model="editForm[field.fieldName]"
+              placeholder="用逗号分隔多个标签"
+              class="form-input"
+            />
+            <input
+              v-else-if="field.fieldType === 'rating'"
+              type="number"
+              v-model.number="editForm[field.fieldName]"
+              min="0"
+              max="5"
+              class="form-input"
+            />
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-cancel" @click="closeEditModal">取消</button>
             <button type="submit" class="btn-submit">保存</button>
           </div>
         </form>
@@ -246,9 +260,12 @@ const store = useTableStore()
 const showFieldModal = ref(false)
 const showFilterModal = ref(false)
 const showSortModal = ref(false)
+const showEditModal = ref(false)
 const editingField = ref<FieldDefinition | null>(null)
 const editingCell = ref<{ rowId: string; fieldName: string } | null>(null)
 const selectedRecords = ref<string[]>([])
+const editingRecordId = ref<string | null>(null)
+const editForm = ref<Record<string, any>>({})
 const sortField = ref('')
 const sortDirection = ref<'asc' | 'desc'>('asc')
 
@@ -291,27 +308,6 @@ const displayData = computed(() => {
   return data
 })
 
-const allSelected = computed(() => {
-  return displayData.value.length > 0 && displayData.value.every(r => selectedRecords.value.includes(r.id))
-})
-
-const toggleSelectAll = () => {
-  if (allSelected.value) {
-    selectedRecords.value = []
-  } else {
-    selectedRecords.value = displayData.value.map(r => r.id)
-  }
-}
-
-const toggleSelect = (id: string) => {
-  const index = selectedRecords.value.indexOf(id)
-  if (index > -1) {
-    selectedRecords.value.splice(index, 1)
-  } else {
-    selectedRecords.value.push(id)
-  }
-}
-
 const addRecord = () => {
   if (!store.currentProject || !store.currentTable) return
   
@@ -329,7 +325,7 @@ const addRecord = () => {
           defaultValues[field.fieldName] = 0
           break
         case 'date':
-          defaultValues[field.fieldName] = ''
+          defaultValues[field.fieldName] = new Date().toISOString().split('T')[0]
           break
         case 'select':
           defaultValues[field.fieldName] = field.options?.[0] || ''
@@ -357,15 +353,32 @@ const deleteRecord = (recordId: string) => {
   store.deleteRecord(store.currentProject.id, store.currentTable.id, recordId)
 }
 
-const batchDelete = () => {
-  if (!store.currentProject || !store.currentTable) return
-  store.batchDeleteRecords(store.currentProject.id, store.currentTable.id, selectedRecords.value)
-  selectedRecords.value = []
-}
-
 const copyRecord = (recordId: string) => {
   if (!store.currentProject || !store.currentTable) return
   store.copyRecord(store.currentProject.id, store.currentTable.id, recordId)
+}
+
+const editRecord = (recordId: string) => {
+  if (!store.currentProject || !store.currentTable) return
+  const record = store.currentTable.data.find(r => r.id === recordId)
+  if (record) {
+    editingRecordId.value = recordId
+    editForm.value = { ...record }
+    showEditModal.value = true
+  }
+}
+
+const closeEditModal = () => {
+  showEditModal.value = false
+  editingRecordId.value = null
+  editForm.value = {}
+}
+
+const saveEditRecord = () => {
+  if (!store.currentProject || !store.currentTable || !editingRecordId.value) return
+  const { id, ...updates } = editForm.value
+  store.updateRecord(store.currentProject.id, store.currentTable.id, editingRecordId.value, updates)
+  closeEditModal()
 }
 
 const startEdit = (rowId: string, fieldName: string) => {
@@ -409,7 +422,17 @@ const saveField = () => {
   if (editingField.value) {
     store.updateField(store.currentProject.id, store.currentTable.id, editingField.value.id, field)
   } else {
-    store.addField(store.currentProject.id, store.currentTable.id, field)
+    const newField = store.addField(store.currentProject.id, store.currentTable.id, field)
+    // 将新字段添加到当前视图的可见字段列表中
+    if (newField && store.currentView) {
+      const visibleFieldIds = store.currentView.visibleFieldIds || []
+      if (!visibleFieldIds.includes(newField.id)) {
+        visibleFieldIds.push(newField.id)
+        store.updateView(store.currentProject.id, store.currentTable.id, store.currentView.id, {
+          visibleFieldIds
+        })
+      }
+    }
   }
   
   closeFieldModal()
@@ -653,22 +676,11 @@ const getEditorComponent = (_type: string) => {
   background-color: rgba(22, 93, 255, 0.05);
 }
 
-.table-row.selected {
-  background-color: rgba(22, 93, 255, 0.08);
-  border-left: 3px solid var(--primary-color);
-}
-
 .table-cell {
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: var(--font-size-sm);
   color: var(--text-primary);
   white-space: nowrap;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.table-cell.editable:hover {
-  background-color: rgba(251, 189, 35, 0.1);
 }
 
 .cell-value {
@@ -679,35 +691,8 @@ const getEditorComponent = (_type: string) => {
   white-space: nowrap;
 }
 
-.cell-editor {
-  width: 100%;
-}
-
-.editor-input {
-  width: 100%;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border: 2px solid var(--primary-color);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  background-color: var(--bg-white);
-  outline: none;
-}
-
-.select-column {
-  width: 48px;
-  padding: var(--spacing-sm);
-}
-
-.select-all,
-.select-row {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: var(--primary-color);
-}
-
 .actions-column {
-  width: 110px;
+  width: 180px;
   padding: var(--spacing-sm);
 }
 
@@ -725,40 +710,6 @@ const getEditorComponent = (_type: string) => {
 .action-btn:hover {
   color: var(--primary-color);
   background-color: var(--primary-light);
-}
-
-.batch-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background-color: rgba(251, 189, 35, 0.1);
-  border-top: 1px solid rgba(251, 189, 35, 0.3);
-}
-
-.batch-bar span {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
-.batch-btn {
-  padding: var(--spacing-xs) var(--spacing-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: white;
-  background-color: var(--danger-color);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.batch-btn:hover {
-  background-color: #EF4444;
-}
-
-.batch-btn:active {
-  transform: scale(0.98);
 }
 
 /* 弹窗样式 */
