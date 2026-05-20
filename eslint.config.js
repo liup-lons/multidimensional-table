@@ -1,6 +1,7 @@
 import vue from 'eslint-plugin-vue'
 import typescript from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
+import vueParser from 'vue-eslint-parser'
 
 export default [
   {
@@ -23,7 +24,7 @@ export default [
       vue
     },
     languageOptions: {
-      parser: 'vue-eslint-parser',
+      parser: vueParser,
       parserOptions: {
         parser: tsParser,
         ecmaVersion: 2020
