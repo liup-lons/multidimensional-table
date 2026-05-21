@@ -29,7 +29,13 @@
               v-for="field in currentFields"
               :key="field.id"
               class="table-header"
+              draggable="true"
+              @dragstart="handleFieldDragStart($event, field.id)"
+              @dragover.prevent="handleFieldDragOver($event, field.id)"
+              @drop="handleFieldDrop($event, field.id)"
+              @dragend="clearFieldDrag"
               @click="sortByField(field.fieldName)"
+              :class="{ 'drag-over': dragOverFieldId === field.id }"
             >
               {{ field.fieldLabel }}
               <span v-if="sortField === field.fieldName" class="sort-icon">
@@ -45,6 +51,12 @@
             v-for="record in displayData"
             :key="record.id"
             class="table-row"
+            draggable="true"
+            @dragstart="handleRowDragStart($event, record.id)"
+            @dragover.prevent="handleRowDragOver($event, record.id)"
+            @drop="handleRowDrop($event, record.id)"
+            @dragend="clearRowDrag"
+            :class="{ 'drag-over': dragOverRecordId === record.id }"
           >
             <td
               v-for="field in currentFields"
@@ -253,7 +265,19 @@
 <script setup lang="ts">
 import { ref, computed, markRaw, h } from 'vue'
 import { useTableStore } from '../store/table'
-import type { FieldDefinition, FilterCondition, SortCondition } from '../types/table'
+import type { FieldDefinition } from '../types/table'
+
+interface LocalFilterCondition {
+  fieldId: string
+  operator: 'equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'greater_or_equal' | 'less_or_equal' | 'is_empty' | 'is_not_empty'
+  value?: any
+  logic?: 'and' | 'or'
+}
+
+interface LocalSortCondition {
+  fieldId: string
+  direction: 'asc' | 'desc'
+}
 
 const store = useTableStore()
 
@@ -268,6 +292,10 @@ const editingRecordId = ref<string | null>(null)
 const editForm = ref<Record<string, any>>({})
 const sortField = ref('')
 const sortDirection = ref<'asc' | 'desc'>('asc')
+const draggingFieldId = ref<string | null>(null)
+const draggingRecordId = ref<string | null>(null)
+const dragOverFieldId = ref<string | null>(null)
+const dragOverRecordId = ref<string | null>(null)
 
 const fieldForm = ref({
   name: '',
@@ -277,15 +305,17 @@ const fieldForm = ref({
   required: false
 })
 
-const filterConditions = ref<FilterCondition[]>([])
-const sortConditions = ref<SortCondition[]>([])
+const filterConditions = ref<LocalFilterCondition[]>([])
+const sortConditions = ref<LocalSortCondition[]>([])
 
-const currentFields = computed(() => {
+const currentFields = computed<FieldDefinition[]>(() => {
   const allFields = store.currentTable?.fieldDefinitions || []
-  const visibleFieldIds = store.currentView?.visibleFieldIds
+  const visibleFieldIds = store.currentView?.visibleFieldIds as string[] | undefined
   
   if (visibleFieldIds && visibleFieldIds.length > 0) {
-    return allFields.filter(field => visibleFieldIds.includes(field.id))
+    return visibleFieldIds
+      .map((id) => allFields.find((field: FieldDefinition) => field.id === id))
+      .filter((field): field is FieldDefinition => Boolean(field))
   }
   
   return allFields
@@ -312,7 +342,7 @@ const addRecord = () => {
   if (!store.currentProject || !store.currentTable) return
   
   const defaultValues: Record<string, any> = {}
-  currentFields.value.forEach(field => {
+  currentFields.value.forEach((field: FieldDefinition) => {
     if (field.defaultValue !== undefined) {
       defaultValues[field.fieldName] = field.defaultValue
     } else {
@@ -445,6 +475,75 @@ const sortByField = (fieldName: string) => {
     sortField.value = fieldName
     sortDirection.value = 'asc'
   }
+}
+
+const handleFieldDragStart = (event: DragEvent, fieldId: string) => {
+  draggingFieldId.value = fieldId
+  event.dataTransfer?.setData('text/plain', fieldId)
+  event.dataTransfer?.setDragImage(new Image(), 0, 0)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+const handleFieldDragOver = (event: DragEvent, fieldId: string) => {
+  event.preventDefault()
+  if (fieldId !== draggingFieldId.value) {
+    dragOverFieldId.value = fieldId
+  }
+}
+
+const handleFieldDrop = (event: DragEvent, targetFieldId: string) => {
+  event.preventDefault()
+  if (!store.currentProject || !store.currentTable || !store.currentView || !draggingFieldId.value) return
+  if (draggingFieldId.value === targetFieldId) return
+
+  const visibleFieldIds = store.currentView.visibleFieldIds || []
+  const fromIndex = visibleFieldIds.indexOf(draggingFieldId.value)
+  const toIndex = visibleFieldIds.indexOf(targetFieldId)
+  if (fromIndex === -1 || toIndex === -1) return
+
+  const nextFieldOrder = [...visibleFieldIds]
+  const [movedFieldId] = nextFieldOrder.splice(fromIndex, 1)
+  nextFieldOrder.splice(toIndex, 0, movedFieldId)
+
+  store.updateView(store.currentProject.id, store.currentTable.id, store.currentView.id, {
+    visibleFieldIds: nextFieldOrder
+  })
+  draggingFieldId.value = null
+  dragOverFieldId.value = null
+}
+
+const clearFieldDrag = () => {
+  draggingFieldId.value = null
+  dragOverFieldId.value = null
+}
+
+const handleRowDragStart = (event: DragEvent, recordId: string) => {
+  draggingRecordId.value = recordId
+  event.dataTransfer?.setData('text/plain', recordId)
+  event.dataTransfer?.setDragImage(new Image(), 0, 0)
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+const handleRowDragOver = (event: DragEvent, recordId: string) => {
+  event.preventDefault()
+  if (recordId !== draggingRecordId.value) {
+    dragOverRecordId.value = recordId
+  }
+}
+
+const handleRowDrop = (event: DragEvent, targetRecordId: string) => {
+  event.preventDefault()
+  if (!store.currentProject || !store.currentTable || !draggingRecordId.value) return
+  if (draggingRecordId.value === targetRecordId) return
+
+  ;(store as any).moveRecord(store.currentProject.id, store.currentTable.id, draggingRecordId.value, targetRecordId)
+  draggingRecordId.value = null
+  dragOverRecordId.value = null
+}
+
+const clearRowDrag = () => {
+  draggingRecordId.value = null
+  dragOverRecordId.value = null
 }
 
 const addFilter = () => {
@@ -674,6 +773,13 @@ const getEditorComponent = (_type: string) => {
 
 .table-row:hover {
   background-color: rgba(22, 93, 255, 0.05);
+}
+
+.table-header.drag-over,
+.table-row.drag-over {
+  outline: 2px dashed var(--primary-color);
+  outline-offset: -2px;
+  background-color: rgba(22, 93, 255, 0.08);
 }
 
 .table-cell {

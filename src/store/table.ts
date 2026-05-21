@@ -460,6 +460,24 @@ export const useTableStore = defineStore('table', {
       }
       return null
     },
+
+    // 移动记录顺序
+    moveRecord(projectId: string, tableId: string, fromRecordId: string, toRecordId: string) {
+      const table = this.getTableById(projectId, tableId)
+      if (table) {
+        const fromIndex = table.data.findIndex((r: Record<string, unknown>) => r.id === fromRecordId)
+        const toIndex = table.data.findIndex((r: Record<string, unknown>) => r.id === toRecordId)
+        if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return
+
+        const [movedRecord] = table.data.splice(fromIndex, 1)
+        const insertIndex = fromIndex < toIndex ? toIndex  : toIndex
+        table.data.splice(insertIndex, 0, movedRecord)
+        table.updatedAt = new Date().toISOString()
+        const project = this.getProjectById(projectId)
+        if (project) project.updatedAt = table.updatedAt
+        this.saveToStorage()
+      }
+    },
     
     // 创建视图
     createView(projectId: string, tableId: string, view: Omit<View, 'id'>) {
