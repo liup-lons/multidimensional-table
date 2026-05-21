@@ -73,13 +73,15 @@
                 :class="{
                   'bar-completed': record.progress === 100,
                   'bar-in-progress': record.progress > 0 && record.progress < 100,
-                  'bar-pending': !record.progress
+                  'bar-pending': !record.progress,
+                  'dragging': draggingRecordId === record.id
                 }"
                 :style="{
-                  left: getBarPosition(record) + 'px',
+                  left: getDragLeft(record) + 'px',
                   width: getBarWidth(record) + 'px'
                 }"
-                @click="openTaskDetail(record)"
+                @pointerdown.stop.prevent="startDrag($event, record)"
+                @click="handleBarClick(record)"
               >
                 <div v-if="record.progress !== undefined && record.progress > 0" class="bar-progress-bg">
                   <div class="bar-progress-fill" :style="{ width: Math.min(record.progress, 100) + '%' }"></div>
@@ -176,6 +178,11 @@ const store = useTableStore()
 const zoomLevel = ref(100)
 const timeScale = ref<'day' | 'week' | 'month' | 'quarter'>('week')
 const selectedRecord = ref<Record<string, any> | null>(null)
+
+const draggingRecordId = ref<string | null>(null)
+const dragStartPageX = ref(0)
+const draggingOffsetX = ref(0)
+const dragMoved = ref(false)
 
 const currentFields = computed(() => {
   return store.currentTable?.fieldDefinitions || []
@@ -323,6 +330,113 @@ const getBarPosition = (record: Record<string, any>) => {
   const periodWidth = 100 * (zoomLevel.value / 100)
 
   return (diffDays / periodDays) * periodWidth
+}
+
+const getBarPixelPerDay = () => {
+  const periodWidth = 100 * (zoomLevel.value / 100)
+  const periodDays = getDaysPerPeriod()
+  return periodWidth / periodDays
+}
+
+const getDragLeft = (record: Record<string, any>) => {
+  const position = getBarPosition(record)
+  if (draggingRecordId.value === record.id) {
+    return position + draggingOffsetX.value
+  }
+  return position
+}
+
+const handleBarClick = (record: Record<string, any>) => {
+  if (dragMoved.value) {
+    dragMoved.value = false
+    return
+  }
+  openTaskDetail(record)
+}
+
+const startDrag = (event: PointerEvent, record: Record<string, any>) => {
+  if (!startDateField.value || event.button !== 0) return
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  draggingRecordId.value = record.id
+  dragStartPageX.value = event.pageX
+  draggingOffsetX.value = 0
+  dragMoved.value = false
+
+  const target = event.currentTarget as HTMLElement
+  if (target.setPointerCapture) {
+    target.setPointerCapture(event.pointerId)
+  }
+
+  window.addEventListener('pointermove', handlePointerMove)
+  window.addEventListener('pointerup', handlePointerUp)
+}
+
+const handlePointerMove = (event: PointerEvent) => {
+  if (!draggingRecordId.value) return
+
+  event.preventDefault()
+
+  const deltaX = event.pageX - dragStartPageX.value
+  draggingOffsetX.value = deltaX
+  if (Math.abs(deltaX) > 4) {
+    dragMoved.value = true
+  }
+}
+
+const cleanupDragEvents = () => {
+  window.removeEventListener('pointermove', handlePointerMove)
+  window.removeEventListener('pointerup', handlePointerUp)
+  draggingRecordId.value = null
+  draggingOffsetX.value = 0
+}
+
+const commitDrag = () => {
+  if (!store.currentProject || !store.currentTable || !draggingRecordId.value || !startDateField.value) return
+
+  const record = displayData.value.find(r => r.id === draggingRecordId.value)
+  if (!record) return
+
+  const dayOffset = Math.round(draggingOffsetX.value / getBarPixelPerDay())
+  if (dayOffset === 0) return
+
+  const startVal = record[startDateField.value.fieldName]
+  if (!startVal) return
+
+  const newStart = new Date(startVal)
+  newStart.setDate(newStart.getDate() + dayOffset)
+
+  const updates: Record<string, unknown> = {
+    [startDateField.value.fieldName]: newStart.toISOString().slice(0, 10)
+  }
+
+  if (endDateField.value) {
+    const endVal = record[endDateField.value.fieldName]
+    if (endVal) {
+      const newEnd = new Date(endVal)
+      newEnd.setDate(newEnd.getDate() + dayOffset)
+      updates[endDateField.value.fieldName] = newEnd.toISOString().slice(0, 10)
+    }
+  }
+
+  store.updateRecord(store.currentProject.id, store.currentTable.id, record.id, updates)
+}
+
+const handlePointerUp = () => {
+  if (draggingRecordId.value) {
+    commitDrag()
+  }
+
+  const shouldPreventClick = dragMoved.value
+  cleanupDragEvents()
+
+  if (shouldPreventClick) {
+    setTimeout(() => {
+      dragMoved.value = false
+    }, 0)
+  }
 }
 
 const getBarWidth = (record: Record<string, any>) => {
@@ -644,6 +758,13 @@ const formatDate = (dateStr: string | undefined) => {
   transform: scaleY(1.05);
   box-shadow: var(--shadow-md);
   z-index: 10;
+}
+
+.gantt-bar.dragging {
+  opacity: 0.95;
+  cursor: grabbing;
+  transform: none !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
 }
 
 .gantt-bar.bar-pending:hover {
