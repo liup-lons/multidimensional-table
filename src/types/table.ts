@@ -103,6 +103,12 @@ export interface View {
   filterConditions: FilterCondition[]
   sortConditions: SortCondition[]
   visibleFieldIds: string[]
+  groupFieldId?: string
+  titleFieldId?: string
+  displayFieldIds?: string[]
+  dateFieldId?: string
+  startDateFieldId?: string
+  endDateFieldId?: string
 }
 
 export interface Comment {

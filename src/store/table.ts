@@ -439,6 +439,22 @@ export const useTableStore = defineStore('table', {
         this.saveToStorage()
       }
     },
+
+    // 批量更新记录
+    batchUpdateRecords(projectId: string, tableId: string, recordIds: string[], updates: Record<string, unknown>) {
+      const table = this.getTableById(projectId, tableId)
+      if (table) {
+        table.data.forEach((record: Record<string, unknown>) => {
+          if (recordIds.includes(record.id as string)) {
+            Object.assign(record, updates)
+          }
+        })
+        table.updatedAt = new Date().toISOString()
+        const project = this.getProjectById(projectId)
+        if (project) project.updatedAt = table.updatedAt
+        this.saveToStorage()
+      }
+    },
     
     // 复制记录
     copyRecord(projectId: string, tableId: string, recordId: string) {
@@ -470,7 +486,7 @@ export const useTableStore = defineStore('table', {
         if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return
 
         const [movedRecord] = table.data.splice(fromIndex, 1)
-        const insertIndex = fromIndex < toIndex ? toIndex  : toIndex
+        const insertIndex = fromIndex < toIndex ? toIndex : toIndex
         table.data.splice(insertIndex, 0, movedRecord)
         table.updatedAt = new Date().toISOString()
         const project = this.getProjectById(projectId)
@@ -543,6 +559,18 @@ export const useTableStore = defineStore('table', {
         }
       }
     },
+
+    // 按类型切换视图
+    switchViewByType(viewType: View['type']) {
+      if (!this.currentTable) return null
+
+      const targetView = this.currentTable.views.find(view => view.type === viewType)
+      if (targetView) {
+        this.currentView = targetView
+        return targetView
+      }
+      return null
+    },
     
     // 设置筛选条件
     setFilterConditions(projectId: string, tableId: string, viewId: string, conditions: FilterCondition[]) {
@@ -614,12 +642,15 @@ export const useTableStore = defineStore('table', {
       const rows = table.data.map(record => {
         return table.fieldDefinitions.map(f => {
           const value = record[f.fieldName]
-          if (Array.isArray(value)) return value.join(', ')
-          return value != null ? String(value) : ''
+          if (Array.isArray(value)) return value.join('; ')
+          return serializeCsvValue(value)
         })
       })
       
-      const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
+      const csv = [
+        headers.map(header => escapeCsvCell(header)).join(','),
+        ...rows.map(row => row.map(cell => escapeCsvCell(cell)).join(','))
+      ].join('\n')
       return csv
     },
     
@@ -628,10 +659,10 @@ export const useTableStore = defineStore('table', {
       const table = this.getTableById(projectId, tableId)
       if (!table) return { success: 0, failed: 0, errors: [] }
       
-      const lines = csvContent.split('\n').filter(line => line.trim())
-      if (lines.length < 2) return { success: 0, failed: 0, errors: ['CSV文件至少需要包含表头和一行数据'] }
-      
-      const headers = lines[0].split(',').map(h => h.trim())
+      const rows = parseCsvContent(csvContent)
+      if (rows.length < 2) return { success: 0, failed: 0, errors: ['CSV文件至少需要包含表头和一行数据'] }
+
+      const headers = rows[0].map(h => h.trim())
       const fieldMap: Record<string, string> = {} // header label -> fieldName
       
       // 匹配字段
@@ -646,9 +677,9 @@ export const useTableStore = defineStore('table', {
       let success = 0
       let failed = 0
       
-      for (let i = 1; i < lines.length; i++) {
+      for (let i = 1; i < rows.length; i++) {
         try {
-          const values = lines[i].split(',')
+          const values = rows[i]
           const record: Record<string, unknown> = {}
           
           values.forEach((value: string, index: number) => {
@@ -761,14 +792,90 @@ function parseValue(value: string, fieldType: string): string | number | boolean
     case 'number':
       return parseFloat(value) || 0
     case 'date':
-      return new Date(value).toISOString()
+      return normalizeDateValue(value)
     case 'boolean':
       return value.toLowerCase() === 'true' || value === '1'
     case 'rating':
       return parseInt(value) || 0
     case 'tags':
-      return value.split(';').map(t => t.trim()).filter(Boolean)
+      return value
+        .split(/[;,]/)
+        .map(t => t.trim())
+        .filter(Boolean)
     default:
       return value
   }
+}
+
+function normalizeDateValue(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+  return date.toISOString().slice(0, 10)
+}
+
+function serializeCsvValue(value: unknown): string {
+  if (value == null) return ''
+  if (Array.isArray(value)) return value.join('; ')
+  return String(value)
+}
+
+function escapeCsvCell(value: string): string {
+  if (/[",\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
+}
+
+function parseCsvContent(csvContent: string): string[][] {
+  const rows: string[][] = []
+  let currentRow: string[] = []
+  let currentCell = ''
+  let inQuotes = false
+
+  for (let index = 0; index < csvContent.length; index++) {
+    const char = csvContent[index]
+    const nextChar = csvContent[index + 1]
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentCell += '"'
+        index++
+      } else {
+        inQuotes = !inQuotes
+      }
+      continue
+    }
+
+    if (char === ',' && !inQuotes) {
+      currentRow.push(currentCell)
+      currentCell = ''
+      continue
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        index++
+      }
+      currentRow.push(currentCell)
+      if (currentRow.some(cell => cell.trim() !== '')) {
+        rows.push(currentRow)
+      }
+      currentRow = []
+      currentCell = ''
+      continue
+    }
+
+    currentCell += char
+  }
+
+  if (currentCell.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentCell)
+    if (currentRow.some(cell => cell.trim() !== '')) {
+      rows.push(currentRow)
+    }
+  }
+
+  return rows
 }
