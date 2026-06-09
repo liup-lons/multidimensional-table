@@ -26,6 +26,9 @@
           <button class="header-btn" @click="resetTestData">
             重置测试数据
           </button>
+          <button class="header-btn theme-toggle" @click="toggleTheme" title="切换主题">
+            <span class="theme-icon">🌓</span>
+          </button>
         </div>
       </header>
 
@@ -82,6 +85,8 @@
           <KanbanView v-else-if="store.currentView?.type === 'kanban'" />
           <CalendarView v-else-if="store.currentView?.type === 'calendar'" />
           <GanttView v-else-if="store.currentView?.type === 'gantt'" />
+          <DashboardView v-else-if="store.currentView?.type === 'dashboard'" />
+          <WorkflowManager v-else-if="store.currentView?.type === 'workflow'" />
         </template>
       </div>
     </main>
@@ -131,6 +136,8 @@
               <option value="kanban">看板视图</option>
               <option value="calendar">日历视图</option>
               <option value="gantt">甘特视图</option>
+              <option value="dashboard">数据仪表盘</option>
+              <option value="workflow">自动化工作流</option>
             </select>
           </div>
           <div class="form-actions">
@@ -180,24 +187,60 @@
         </div>
       </div>
     </div>
+
+    <!-- 快捷键帮助弹窗 -->
+    <div v-if="showShortcutsModal" class="modal-overlay" @click.self="showShortcutsModal = false">
+      <div class="modal-content shortcuts-modal">
+        <div class="modal-header">
+          <h3>快捷键</h3>
+          <button class="close-btn" @click="showShortcutsModal = false">×</button>
+        </div>
+        <div class="shortcuts-list">
+          <div v-for="(shortcut, index) in shortcuts.shortcuts" :key="index" class="shortcut-item">
+            <div class="shortcut-keys">
+              <span v-if="shortcut.ctrl" class="key">Ctrl</span>
+              <span v-if="shortcut.shift" class="key">Shift</span>
+              <span v-if="shortcut.alt" class="key">Alt</span>
+              <span class="key">{{ shortcut.key.toUpperCase() }}</span>
+            </div>
+            <span class="shortcut-description">{{ shortcut.description }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast提示 -->
+    <Transition name="toast">
+      <div v-if="toastMessage" class="toast-container">
+        <div class="toast-content">
+          {{ toastMessage }}
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useTableStore } from './store/table'
+import { useThemeStore } from './store/theme'
+import { useShortcuts } from './composables/useShortcuts'
 import ProjectList from './components/ProjectList.vue'
 import TableView from './components/TableView.vue'
 import KanbanView from './components/KanbanView.vue'
 import CalendarView from './components/CalendarView.vue'
 import GanttView from './components/GanttView.vue'
+import DashboardView from './components/DashboardView.vue'
+import WorkflowManager from './components/WorkflowManager.vue'
 
 const store = useTableStore()
+const themeStore = useThemeStore()
 
 const showCreateTableModal = ref(false)
 const showCreateViewModal = ref(false)
 const showBackupModal = ref(false)
 const showImportModal = ref(false)
+const showShortcutsModal = ref(false)
 const tableName = ref('')
 const viewName = ref('')
 const viewType = ref('table')
@@ -205,7 +248,91 @@ const backupContent = ref('')
 
 onMounted(() => {
   store.initStore()
+  themeStore.initTheme()
 })
+
+const toggleTheme = () => {
+  themeStore.toggleTheme()
+}
+
+const closeAllModals = () => {
+  showCreateTableModal.value = false
+  showCreateViewModal.value = false
+  showBackupModal.value = false
+  showImportModal.value = false
+  showShortcutsModal.value = false
+}
+
+const shortcuts = useShortcuts([
+  {
+    key: 's',
+    ctrl: true,
+    description: '保存数据',
+    handler: () => {
+      store.saveToStorage()
+      showToast('数据已保存')
+    }
+  },
+  {
+    key: 'n',
+    ctrl: true,
+    description: '新建表格',
+    handler: () => {
+      if (store.currentProject) {
+        showCreateTableModal.value = true
+      }
+    }
+  },
+  {
+    key: 'v',
+    ctrl: true,
+    description: '新建视图',
+    handler: () => {
+      if (store.currentTable) {
+        showCreateViewModal.value = true
+      }
+    }
+  },
+  {
+    key: 'b',
+    ctrl: true,
+    description: '备份数据',
+    handler: () => {
+      showBackupModal.value = true
+    }
+  },
+  {
+    key: '?',
+    ctrl: true,
+    description: '显示快捷键',
+    handler: () => {
+      showShortcutsModal.value = true
+    }
+  },
+  {
+    key: 'Escape',
+    description: '关闭弹窗',
+    handler: () => {
+      closeAllModals()
+    }
+  },
+  {
+    key: 't',
+    ctrl: true,
+    description: '切换主题',
+    handler: () => {
+      themeStore.toggleTheme()
+    }
+  }
+])
+
+const toastMessage = ref('')
+const showToast = (message: string) => {
+  toastMessage.value = message
+  setTimeout(() => {
+    toastMessage.value = ''
+  }, 2000)
+}
 
 const createTable = () => {
   if (!store.currentProject || !tableName.value) return
@@ -374,6 +501,15 @@ const resetTestData = () => {
 
 .header-btn:hover {
   background-color: rgba(0, 0, 0, 0.05);
+}
+
+.theme-toggle {
+  font-size: 20px;
+  padding: var(--spacing-xs);
+}
+
+.theme-icon {
+  font-size: 18px;
 }
 
 /* 表格标签 */
@@ -719,6 +855,120 @@ const resetTestData = () => {
 
 .backup-textarea::placeholder {
   color: var(--text-placeholder);
+}
+
+/* 快捷键弹窗样式 */
+.shortcuts-modal {
+  width: 480px;
+}
+
+.shortcuts-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.shortcuts-modal .modal-header h3 {
+  margin: 0;
+}
+
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background-color: var(--bg-gray);
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.close-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary);
+}
+
+.shortcuts-list {
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.shortcut-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.shortcut-item:last-child {
+  border-bottom: none;
+}
+
+.shortcut-keys {
+  display: flex;
+  gap: 6px;
+}
+
+.shortcut-keys .key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  background-color: var(--bg-gray);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+.shortcut-description {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Toast提示样式 */
+.toast-container {
+  position: fixed;
+  bottom: var(--spacing-xl);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+}
+
+.toast-content {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: white;
+  background-color: rgba(0, 0, 0, 0.8);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(4px);
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all var(--transition-normal);
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px);
 }
 
 /* 响应式设计 */

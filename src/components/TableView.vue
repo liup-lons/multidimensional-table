@@ -63,7 +63,7 @@
               :key="field.id"
               class="table-cell"
             >
-              <span class="cell-value">{{ formatCellValue(record[field.fieldName], field.fieldType) }}</span>
+              <span class="cell-value">{{ formatCellValue(record[field.fieldName], field.fieldType, record) }}</span>
             </td>
             <td class="actions-column">
               <button class="action-btn" @click="editRecord(record.id)">编辑</button>
@@ -101,6 +101,7 @@
               <option value="person">人员</option>
               <option value="rating">评分</option>
               <option value="url">网址</option>
+              <option value="formula">公式</option>
             </select>
           </div>
           <div v-if="fieldForm.type === 'select' || fieldForm.type === 'tags'" class="form-group">
@@ -265,6 +266,7 @@
 <script setup lang="ts">
 import { ref, computed, markRaw, h } from 'vue'
 import { useTableStore } from '../store/table'
+import { evaluateFormula } from '../utils/formula'
 import type { FieldDefinition } from '../types/table'
 
 interface LocalFilterCondition {
@@ -613,7 +615,7 @@ const getFieldTypeLabel = (type: string) => {
   return labels[type] || type
 }
 
-const formatCellValue = (value: any, type: string) => {
+const formatCellValue = (value: any, type: string, record?: Record<string, any>) => {
   if (value == null || value === '') return '-'
   
   switch (type) {
@@ -627,6 +629,15 @@ const formatCellValue = (value: any, type: string) => {
       return '★'.repeat(value) + '☆'.repeat(5 - value)
     case 'url':
       return `<a href="${value}" target="_blank">${value}</a>`
+    case 'formula':
+      if (record && typeof value === 'string' && value.startsWith('=')) {
+        const result = evaluateFormula(value, record, store.getFilteredTableData || [])
+        if (result.success) {
+          return String(result.value)
+        }
+        return '#错误'
+      }
+      return String(value)
     default:
       return String(value)
   }

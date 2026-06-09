@@ -97,7 +97,7 @@ export interface SortCondition {
 export interface View {
   id: string
   name: string
-  type: 'table' | 'kanban' | 'calendar' | 'gantt'
+  type: 'table' | 'kanban' | 'calendar' | 'gantt' | 'dashboard' | 'workflow'
   tableId: string
   isDefault?: boolean
   filterConditions: FilterCondition[]
